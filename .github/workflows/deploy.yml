@@ -16,12 +16,19 @@ jobs:
     - name: Deploy via SSH
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.KUSHAL }}
+        host: ${{ secrets.HOST }}
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
           cd ~
-          # Get or update the repo that contains deploy.sh
+          # Remove existing deploy directory if it exists and is not a git repo
+          if [ -d "deploy" ]; then
+            if [ ! -d "deploy/.git" ]; then
+              rm -rf deploy
+            fi
+          fi
+          
+          # Clone or update the repo
           git clone https://github.com/kushal-billur/workshop.git deploy || (cd deploy && git pull origin main)
 
           cd deploy/project
