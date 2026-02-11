@@ -9,6 +9,8 @@ git clone https://github.com/kushal-billur/workshop.git app || (cd app && git pu
 # Build and run the Docker container
 cd app
 sudo docker build -t my-app .
+sudo docker stop devops-site || true
+sudo docker rm devops-site || true
 sudo docker stop my-app-container || true
 sudo docker rm my-app-container || true
 sudo docker run -d --name my-app-container -p 80:80 my-app
