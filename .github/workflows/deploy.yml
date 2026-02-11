@@ -31,6 +31,6 @@ jobs:
           # Clone or update the repo
           git clone https://github.com/kushal-billur/workshop.git deploy || (cd deploy && git pull origin main)
 
-          cd deploy/project
+          cd deploy
           chmod +x deploy.sh
           ./deploy.sh
