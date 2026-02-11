@@ -20,5 +20,10 @@ jobs:
         username: ubuntu
         key: ${{ secrets.EC2_SSH_KEY }}
         script: |
-          cd ~/deploy
+          cd ~
+          # Get or update the repo that contains deploy.sh
+          git clone https://github.com/kushal-billur/workshop.git deploy || (cd deploy && git pull origin main)
+
+          cd deploy/project
+          chmod +x deploy.sh
           ./deploy.sh
