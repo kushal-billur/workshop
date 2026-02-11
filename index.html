@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strike Force | FPS Game</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+    background:#000;
+    overflow:hidden;
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+}
+
+canvas{display:block}
+
+/* HUD */
+#hud{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+}
+
+#health-bar{
+    position:absolute;
+    top:15px;
+    left:15px;
+    width:220px;
+    height:20px;
+    border-radius:20px;
+    border:2px solid #00ffea;
+    overflow:hidden;
+}
+#health{
+    width:100%;
+    height:100%;
+    background:linear-gradient(90deg,#00ffea,#00ff00);
+}
+
+#ammo{
+    position:absolute;
+    top:15px;
+    right:15px;
+    font-size:22px;
+    color:#0ff;
+}
+
+#score{
+    position:absolute;
+    top:45px;
+    right:15px;
+    font-size:18px;
+    color:#fff;
+}
+
+#crosshair{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    font-size:30px;
+    color:#00ffff;
+    text-shadow:0 0 15px cyan;
+}
+
+#start{
+    position:fixed;
+    inset:0;
+    background:radial-gradient(circle,#020617,#000);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    color:white;
+    text-align:center;
+}
+#start h1{
+    font-size:48px;
+    text-shadow:0 0 30px cyan;
+}
+#start button{
+    margin-top:20px;
+    padding:15px 50px;
+    font-size:22px;
+    border:none;
+    border-radius:12px;
+    background:linear-gradient(45deg,cyan,dodgerblue);
+    cursor:pointer;
+    box-shadow:0 0 25px cyan;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="start">
+    <h1>STRIKE FORCE</h1>
+    <p>PUBG / COD STYLE FPS GAME</p>
+    <button onclick="startGame()">START</button>
+</div>
+
+<div id="hud">
+    <div id="health-bar"><div id="health"></div></div>
+    <div id="ammo">Ammo: <span id="ammoCount">30</span></div>
+    <div id="score">Score: <span id="scoreCount">0</span></div>
+    <div id="crosshair">+</div>
+</div>
+
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+let bullets=[];
+let enemies=[];
+let particles=[];
+
+let health=100;
+let ammo=30;
+let score=0;
+let running=false;
+
+class Bullet{
+    constructor(x,y,dx,dy){
+        this.x=x; this.y=y;
+        this.dx=dx; this.dy=dy;
+        this.r=3;
+    }
+    draw(){
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+        ctx.fillStyle="cyan";
+        ctx.shadowBlur=10;
+        ctx.shadowColor="cyan";
+        ctx.fill();
+        ctx.shadowBlur=0;
+    }
+    update(){
+        this.x+=this.dx;
+        this.y+=this.dy;
+        this.draw();
+    }
+}
+
+class Enemy{
+    constructor(){
+        this.r=Math.random()*20+25;
+        const edge=Math.floor(Math.random()*4);
+        if(edge===0){this.x=0;this.y=Math.random()*canvas.height}
+        if(edge===1){this.x=canvas.width;this.y=Math.random()*canvas.height}
+        if(edge===2){this.x=Math.random()*canvas.width;this.y=0}
+        if(edge===3){this.x=Math.random()*canvas.width;this.y=canvas.height}
+        const ang=Math.atan2(canvas.height/2-this.y,canvas.width/2-this.x);
+        this.dx=Math.cos(ang)*1.3;
+        this.dy=Math.sin(ang)*1.3;
+    }
+    draw(){
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
+        ctx.fillStyle="red";
+        ctx.shadowBlur=20;
+        ctx.shadowColor="red";
+        ctx.fill();
+        ctx.shadowBlur=0;
+    }
+    update(){
+        this.x+=this.dx;
+        this.y+=this.dy;
+        this.draw();
+    }
+}
+
+class Particle{
+    constructor(x,y){
+        this.x=x; this.y=y;
+        this.dx=(Math.random()-.5)*6;
+        this.dy=(Math.random()-.5)*6;
+        this.life=25;
+    }
+    update(){
+        this.x+=this.dx;
+        this.y+=this.dy;
+        this.life--;
+        ctx.fillStyle="orange";
+        ctx.fillRect(this.x,this.y,3,3);
+    }
+}
+
+function spawnEnemy(){
+    if(running) enemies.push(new Enemy());
+}
+setInterval(spawnEnemy,800);
+
+addEventListener("click", e=>{
+    if(!running || ammo<=0) return;
+    ammo--;
+    document.getElementById("ammoCount").innerText=ammo;
+    const ang=Math.atan2(e.clientY-canvas.height/2,e.clientX-canvas.width/2);
+    bullets.push(new Bullet(canvas.width/2,canvas.height/2,Math.cos(ang)*10,Math.sin(ang)*10));
+});
+
+addEventListener("keydown", e=>{
+    if(e.key==="r"||e.key==="R"){
+        ammo=30;
+        document.getElementById("ammoCount").innerText=ammo;
+    }
+});
+
+function animate(){
+    if(!running) return;
+    requestAnimationFrame(animate);
+    ctx.fillStyle="rgba(0,0,0,.35)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.beginPath();
+    ctx.arc(canvas.width/2,canvas.height/2,10,0,Math.PI*2);
+    ctx.fillStyle="cyan";
+    ctx.fill();
+
+    bullets.forEach((b,i)=>{
+        b.update();
+        if(b.x<0||b.x>canvas.width||b.y<0||b.y>canvas.height) bullets.splice(i,1);
+    });
+
+    enemies.forEach((e,i)=>{
+        e.update();
+        let d=Math.hypot(e.x-canvas.width/2,e.y-canvas.height/2);
+        if(d<e.r+10){
+            enemies.splice(i,1);
+            health-=15;
+            document.getElementById("health").style.width=health+"%";
+            if(health<=0) gameOver();
+        }
+        bullets.forEach((b,j)=>{
+            let dist=Math.hypot(e.x-b.x,e.y-b.y);
+            if(dist<e.r+b.r){
+                enemies.splice(i,1);
+                bullets.splice(j,1);
+                score+=10;
+                document.getElementById("scoreCount").innerText=score;
+                for(let k=0;k<20;k++) particles.push(new Particle(e.x,e.y));
+            }
+        });
+    });
+
+    particles.forEach((p,i)=>{
+        p.update();
+        if(p.life<=0) particles.splice(i,1);
+    });
+}
+
+function startGame(){
+    document.getElementById("start").style.display="none";
+    running=true;
+    animate();
+}
+
+function gameOver(){
+    running=false;
+    alert("🔥 GAME OVER 🔥\nScore: "+score);
+    location.reload();
+}
+</script>
+
+</body>
+</html>
