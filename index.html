@@ -3,268 +3,258 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Strike Force | FPS Game</title>
+<title>Block Blast Pro</title>
 
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
+*{box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+
 body{
-    background:#000;
-    overflow:hidden;
-    font-family: 'Segoe UI', Tahoma, sans-serif;
+    margin:0;
+    background:radial-gradient(circle at top,#0f172a,#020617);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    color:white;
 }
 
-canvas{display:block}
-
-/* HUD */
-#hud{
-    position:fixed;
-    inset:0;
-    pointer-events:none;
-}
-
-#health-bar{
-    position:absolute;
-    top:15px;
-    left:15px;
-    width:220px;
-    height:20px;
+.game{
+    background:rgba(0,0,0,.7);
+    padding:20px;
     border-radius:20px;
-    border:2px solid #00ffea;
-    overflow:hidden;
-}
-#health{
-    width:100%;
-    height:100%;
-    background:linear-gradient(90deg,#00ffea,#00ff00);
+    box-shadow:0 0 40px #00ffff88;
+    width:350px;
 }
 
-#ammo{
-    position:absolute;
-    top:15px;
-    right:15px;
-    font-size:22px;
-    color:#0ff;
-}
-
-#score{
-    position:absolute;
-    top:45px;
-    right:15px;
-    font-size:18px;
-    color:#fff;
-}
-
-#crosshair{
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    font-size:30px;
-    color:#00ffff;
+h1{
+    text-align:center;
+    margin-bottom:10px;
     text-shadow:0 0 15px cyan;
 }
 
-#start{
-    position:fixed;
-    inset:0;
-    background:radial-gradient(circle,#020617,#000);
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    color:white;
+.score{
     text-align:center;
-}
-#start h1{
-    font-size:48px;
-    text-shadow:0 0 30px cyan;
-}
-#start button{
-    margin-top:20px;
-    padding:15px 50px;
-    font-size:22px;
-    border:none;
-    border-radius:12px;
-    background:linear-gradient(45deg,cyan,dodgerblue);
-    cursor:pointer;
-    box-shadow:0 0 25px cyan;
+    margin-bottom:10px;
+    font-size:20px;
 }
 
+.grid{
+    display:grid;
+    grid-template-columns:repeat(8,1fr);
+    gap:6px;
+}
+
+.cell{
+    width:35px;
+    height:35px;
+    background:#020617;
+    border-radius:8px;
+    box-shadow:inset 0 0 6px #00ffff44;
+}
+
+.cell.active{
+    background:linear-gradient(135deg,#00ffff,#0ea5e9);
+    box-shadow:0 0 12px cyan;
+}
+
+.blocks{
+    display:flex;
+    justify-content:space-around;
+    margin-top:20px;
+}
+
+.block{
+    display:grid;
+    gap:4px;
+    cursor:grab;
+    padding:10px;
+    border-radius:12px;
+    background:#020617;
+    box-shadow:0 0 10px cyan;
+}
+
+.block div{
+    width:25px;
+    height:25px;
+    border-radius:6px;
+    background:linear-gradient(135deg,#00ffff,#0ea5e9);
+    box-shadow:0 0 6px cyan;
+}
+
+.gameover{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.9);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    flex-direction:column;
+    display:none;
+}
+
+.gameover h2{
+    font-size:40px;
+    text-shadow:0 0 20px red;
+}
+
+.gameover button{
+    margin-top:15px;
+    padding:12px 35px;
+    border:none;
+    border-radius:12px;
+    font-size:18px;
+    background:linear-gradient(45deg,cyan,dodgerblue);
+    cursor:pointer;
+}
 </style>
 </head>
 
 <body>
 
-<div id="start">
-    <h1>STRIKE FORCE</h1>
-    <p>PUBG / COD STYLE FPS GAME</p>
-    <button onclick="startGame()">START</button>
+<div class="game">
+    <h1>🧩 Block Blast</h1>
+    <div class="score">Score: <span id="score">0</span></div>
+
+    <div class="grid" id="grid"></div>
+
+    <div class="blocks" id="blocks"></div>
 </div>
 
-<div id="hud">
-    <div id="health-bar"><div id="health"></div></div>
-    <div id="ammo">Ammo: <span id="ammoCount">30</span></div>
-    <div id="score">Score: <span id="scoreCount">0</span></div>
-    <div id="crosshair">+</div>
+<div class="gameover" id="gameover">
+    <h2>GAME OVER</h2>
+    <button onclick="location.reload()">Restart</button>
 </div>
-
-<canvas id="game"></canvas>
 
 <script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-canvas.width = innerWidth;
-canvas.height = innerHeight;
+const grid=document.getElementById("grid");
+const blocksBox=document.getElementById("blocks");
+const scoreEl=document.getElementById("score");
+const gameover=document.getElementById("gameover");
 
-let bullets=[];
-let enemies=[];
-let particles=[];
-
-let health=100;
-let ammo=30;
 let score=0;
-let running=false;
+let board=Array(64).fill(0);
 
-class Bullet{
-    constructor(x,y,dx,dy){
-        this.x=x; this.y=y;
-        this.dx=dx; this.dy=dy;
-        this.r=3;
-    }
-    draw(){
-        ctx.beginPath();
-        ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
-        ctx.fillStyle="cyan";
-        ctx.shadowBlur=10;
-        ctx.shadowColor="cyan";
-        ctx.fill();
-        ctx.shadowBlur=0;
-    }
-    update(){
-        this.x+=this.dx;
-        this.y+=this.dy;
-        this.draw();
-    }
+for(let i=0;i<64;i++){
+    let d=document.createElement("div");
+    d.className="cell";
+    d.dataset.i=i;
+    grid.appendChild(d);
 }
 
-class Enemy{
-    constructor(){
-        this.r=Math.random()*20+25;
-        const edge=Math.floor(Math.random()*4);
-        if(edge===0){this.x=0;this.y=Math.random()*canvas.height}
-        if(edge===1){this.x=canvas.width;this.y=Math.random()*canvas.height}
-        if(edge===2){this.x=Math.random()*canvas.width;this.y=0}
-        if(edge===3){this.x=Math.random()*canvas.width;this.y=canvas.height}
-        const ang=Math.atan2(canvas.height/2-this.y,canvas.width/2-this.x);
-        this.dx=Math.cos(ang)*1.3;
-        this.dy=Math.sin(ang)*1.3;
-    }
-    draw(){
-        ctx.beginPath();
-        ctx.arc(this.x,this.y,this.r,0,Math.PI*2);
-        ctx.fillStyle="red";
-        ctx.shadowBlur=20;
-        ctx.shadowColor="red";
-        ctx.fill();
-        ctx.shadowBlur=0;
-    }
-    update(){
-        this.x+=this.dx;
-        this.y+=this.dy;
-        this.draw();
-    }
-}
+const shapes=[
+    [[1,1,1],[1,0,0]],
+    [[1,1,1]],
+    [[1,1],[1,1]],
+    [[1,1,1,1]],
+    [[1],[1],[1]]
+];
 
-class Particle{
-    constructor(x,y){
-        this.x=x; this.y=y;
-        this.dx=(Math.random()-.5)*6;
-        this.dy=(Math.random()-.5)*6;
-        this.life=25;
-    }
-    update(){
-        this.x+=this.dx;
-        this.y+=this.dy;
-        this.life--;
-        ctx.fillStyle="orange";
-        ctx.fillRect(this.x,this.y,3,3);
-    }
-}
+function randomBlocks(){
+    blocksBox.innerHTML="";
+    for(let i=0;i<3;i++){
+        let shape=shapes[Math.floor(Math.random()*shapes.length)];
+        let b=document.createElement("div");
+        b.className="block";
+        b.draggable=true;
+        b.shape=shape;
+        b.style.gridTemplateColumns=`repeat(${shape[0].length},1fr)`;
 
-function spawnEnemy(){
-    if(running) enemies.push(new Enemy());
-}
-setInterval(spawnEnemy,800);
+        shape.forEach(r=>r.forEach(v=>{
+            let c=document.createElement("div");
+            if(!v) c.style.visibility="hidden";
+            b.appendChild(c);
+        }));
 
-addEventListener("click", e=>{
-    if(!running || ammo<=0) return;
-    ammo--;
-    document.getElementById("ammoCount").innerText=ammo;
-    const ang=Math.atan2(e.clientY-canvas.height/2,e.clientX-canvas.width/2);
-    bullets.push(new Bullet(canvas.width/2,canvas.height/2,Math.cos(ang)*10,Math.sin(ang)*10));
-});
-
-addEventListener("keydown", e=>{
-    if(e.key==="r"||e.key==="R"){
-        ammo=30;
-        document.getElementById("ammoCount").innerText=ammo;
-    }
-});
-
-function animate(){
-    if(!running) return;
-    requestAnimationFrame(animate);
-    ctx.fillStyle="rgba(0,0,0,.35)";
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    ctx.beginPath();
-    ctx.arc(canvas.width/2,canvas.height/2,10,0,Math.PI*2);
-    ctx.fillStyle="cyan";
-    ctx.fill();
-
-    bullets.forEach((b,i)=>{
-        b.update();
-        if(b.x<0||b.x>canvas.width||b.y<0||b.y>canvas.height) bullets.splice(i,1);
-    });
-
-    enemies.forEach((e,i)=>{
-        e.update();
-        let d=Math.hypot(e.x-canvas.width/2,e.y-canvas.height/2);
-        if(d<e.r+10){
-            enemies.splice(i,1);
-            health-=15;
-            document.getElementById("health").style.width=health+"%";
-            if(health<=0) gameOver();
+        b.ondragstart=e=>{
+            e.dataTransfer.setData("shape",JSON.stringify(shape));
         }
-        bullets.forEach((b,j)=>{
-            let dist=Math.hypot(e.x-b.x,e.y-b.y);
-            if(dist<e.r+b.r){
-                enemies.splice(i,1);
-                bullets.splice(j,1);
-                score+=10;
-                document.getElementById("scoreCount").innerText=score;
-                for(let k=0;k<20;k++) particles.push(new Particle(e.x,e.y));
+
+        blocksBox.appendChild(b);
+    }
+}
+
+grid.ondragover=e=>e.preventDefault();
+
+grid.ondrop=e=>{
+    let shape=JSON.parse(e.dataTransfer.getData("shape"));
+    let start=Number(e.target.dataset.i);
+    if(place(shape,start)){
+        score+=10;
+        scoreEl.innerText=score;
+        clearLines();
+        randomBlocks();
+    }
+}
+
+function place(shape,start){
+    let row=Math.floor(start/8);
+    let col=start%8;
+    for(let r=0;r<shape.length;r++){
+        for(let c=0;c<shape[r].length;c++){
+            if(shape[r][c]){
+                let idx=(row+r)*8+(col+c);
+                if(col+c>=8||row+r>=8||board[idx]) return false;
             }
-        });
+        }
+    }
+    for(let r=0;r<shape.length;r++){
+        for(let c=0;c<shape[r].length;c++){
+            if(shape[r][c]){
+                let idx=(row+r)*8+(col+c);
+                board[idx]=1;
+            }
+        }
+    }
+    draw();
+    return true;
+}
+
+function clearLines(){
+    for(let r=0;r<8;r++){
+        if(board.slice(r*8,r*8+8).every(v=>v)){
+            for(let i=r*8;i<r*8+8;i++) board[i]=0;
+            score+=40;
+        }
+    }
+    for(let c=0;c<8;c++){
+        let col=true;
+        for(let r=0;r<8;r++) if(!board[r*8+c]) col=false;
+        if(col){
+            for(let r=0;r<8;r++) board[r*8+c]=0;
+            score+=40;
+        }
+    }
+    scoreEl.innerText=score;
+    draw();
+}
+
+function draw(){
+    document.querySelectorAll(".cell").forEach((c,i)=>{
+        c.classList.toggle("active",board[i]);
+    })
+    if(!movesLeft()) gameover.style.display="flex";
+}
+
+function movesLeft(){
+    return shapes.some(s=>{
+        for(let i=0;i<64;i++) if(placeTest(s,i)) return true;
+        return false;
     });
-
-    particles.forEach((p,i)=>{
-        p.update();
-        if(p.life<=0) particles.splice(i,1);
-    });
 }
 
-function startGame(){
-    document.getElementById("start").style.display="none";
-    running=true;
-    animate();
+function placeTest(shape,start){
+    let row=Math.floor(start/8), col=start%8;
+    for(let r=0;r<shape.length;r++)
+        for(let c=0;c<shape[r].length;c++)
+            if(shape[r][c]){
+                let idx=(row+r)*8+(col+c);
+                if(col+c>=8||row+r>=8||board[idx]) return false;
+            }
+    return true;
 }
 
-function gameOver(){
-    running=false;
-    alert("🔥 GAME OVER 🔥\nScore: "+score);
-    location.reload();
-}
+randomBlocks();
+draw();
 </script>
 
 </body>
