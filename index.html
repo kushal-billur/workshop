@@ -3,258 +3,155 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Block Blast Pro</title>
+<title>Candy Crush Pro</title>
 
 <style>
 *{box-sizing:border-box;font-family:'Segoe UI',sans-serif}
 
 body{
     margin:0;
-    background:radial-gradient(circle at top,#0f172a,#020617);
+    background:radial-gradient(circle,#ff7ad9,#8b5cf6);
     display:flex;
     justify-content:center;
     align-items:center;
     height:100vh;
-    color:white;
 }
 
 .game{
-    background:rgba(0,0,0,.7);
+    background:rgba(0,0,0,.5);
     padding:20px;
     border-radius:20px;
-    box-shadow:0 0 40px #00ffff88;
-    width:350px;
+    box-shadow:0 0 30px #fff;
+    text-align:center;
+    color:white;
 }
 
 h1{
-    text-align:center;
     margin-bottom:10px;
-    text-shadow:0 0 15px cyan;
+    text-shadow:0 0 15px #fff;
 }
 
 .score{
-    text-align:center;
+    font-size:18px;
     margin-bottom:10px;
-    font-size:20px;
 }
 
 .grid{
     display:grid;
-    grid-template-columns:repeat(8,1fr);
-    gap:6px;
+    grid-template-columns:repeat(8,50px);
+    gap:5px;
 }
 
 .cell{
-    width:35px;
-    height:35px;
-    background:#020617;
-    border-radius:8px;
-    box-shadow:inset 0 0 6px #00ffff44;
-}
-
-.cell.active{
-    background:linear-gradient(135deg,#00ffff,#0ea5e9);
-    box-shadow:0 0 12px cyan;
-}
-
-.blocks{
-    display:flex;
-    justify-content:space-around;
-    margin-top:20px;
-}
-
-.block{
-    display:grid;
-    gap:4px;
-    cursor:grab;
-    padding:10px;
+    width:50px;
+    height:50px;
     border-radius:12px;
-    background:#020617;
-    box-shadow:0 0 10px cyan;
-}
-
-.block div{
-    width:25px;
-    height:25px;
-    border-radius:6px;
-    background:linear-gradient(135deg,#00ffff,#0ea5e9);
-    box-shadow:0 0 6px cyan;
-}
-
-.gameover{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,.9);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    flex-direction:column;
-    display:none;
-}
-
-.gameover h2{
-    font-size:40px;
-    text-shadow:0 0 20px red;
-}
-
-.gameover button{
-    margin-top:15px;
-    padding:12px 35px;
-    border:none;
-    border-radius:12px;
-    font-size:18px;
-    background:linear-gradient(45deg,cyan,dodgerblue);
     cursor:pointer;
+    box-shadow:0 0 10px #000;
+    transition:0.15s;
 }
+
+.cell:hover{transform:scale(1.05);}
+
+.red{background:radial-gradient(circle,#ff5f5f,#b91c1c);}
+.blue{background:radial-gradient(circle,#60a5fa,#1d4ed8);}
+.green{background:radial-gradient(circle,#4ade80,#15803d);}
+.yellow{background:radial-gradient(circle,#fde047,#ca8a04);}
+.purple{background:radial-gradient(circle,#c084fc,#7c3aed);}
+.orange{background:radial-gradient(circle,#fb923c,#c2410c);}
+
 </style>
 </head>
 
 <body>
 
 <div class="game">
-    <h1>🧩 Block Blast</h1>
+    <h1>🍬 Candy Crush</h1>
     <div class="score">Score: <span id="score">0</span></div>
-
     <div class="grid" id="grid"></div>
-
-    <div class="blocks" id="blocks"></div>
-</div>
-
-<div class="gameover" id="gameover">
-    <h2>GAME OVER</h2>
-    <button onclick="location.reload()">Restart</button>
 </div>
 
 <script>
 const grid=document.getElementById("grid");
-const blocksBox=document.getElementById("blocks");
 const scoreEl=document.getElementById("score");
-const gameover=document.getElementById("gameover");
-
+const width=8;
 let score=0;
-let board=Array(64).fill(0);
 
-for(let i=0;i<64;i++){
-    let d=document.createElement("div");
-    d.className="cell";
-    d.dataset.i=i;
-    grid.appendChild(d);
-}
+const colors=["red","blue","green","yellow","purple","orange"];
+let board=[];
+let dragStart=null;
 
-const shapes=[
-    [[1,1,1],[1,0,0]],
-    [[1,1,1]],
-    [[1,1],[1,1]],
-    [[1,1,1,1]],
-    [[1],[1],[1]]
-];
-
-function randomBlocks(){
-    blocksBox.innerHTML="";
-    for(let i=0;i<3;i++){
-        let shape=shapes[Math.floor(Math.random()*shapes.length)];
-        let b=document.createElement("div");
-        b.className="block";
-        b.draggable=true;
-        b.shape=shape;
-        b.style.gridTemplateColumns=`repeat(${shape[0].length},1fr)`;
-
-        shape.forEach(r=>r.forEach(v=>{
-            let c=document.createElement("div");
-            if(!v) c.style.visibility="hidden";
-            b.appendChild(c);
-        }));
-
-        b.ondragstart=e=>{
-            e.dataTransfer.setData("shape",JSON.stringify(shape));
-        }
-
-        blocksBox.appendChild(b);
+function createBoard(){
+    for(let i=0;i<64;i++){
+        let cell=document.createElement("div");
+        let color=colors[Math.floor(Math.random()*colors.length)];
+        cell.className="cell "+color;
+        cell.draggable=true;
+        cell.dataset.id=i;
+        board.push(color);
+        grid.appendChild(cell);
     }
 }
 
-grid.ondragover=e=>e.preventDefault();
-
-grid.ondrop=e=>{
-    let shape=JSON.parse(e.dataTransfer.getData("shape"));
-    let start=Number(e.target.dataset.i);
-    if(place(shape,start)){
-        score+=10;
-        scoreEl.innerText=score;
-        clearLines();
-        randomBlocks();
-    }
-}
-
-function place(shape,start){
-    let row=Math.floor(start/8);
-    let col=start%8;
-    for(let r=0;r<shape.length;r++){
-        for(let c=0;c<shape[r].length;c++){
-            if(shape[r][c]){
-                let idx=(row+r)*8+(col+c);
-                if(col+c>=8||row+r>=8||board[idx]) return false;
-            }
-        }
-    }
-    for(let r=0;r<shape.length;r++){
-        for(let c=0;c<shape[r].length;c++){
-            if(shape[r][c]){
-                let idx=(row+r)*8+(col+c);
-                board[idx]=1;
-            }
-        }
-    }
-    draw();
-    return true;
-}
-
-function clearLines(){
-    for(let r=0;r<8;r++){
-        if(board.slice(r*8,r*8+8).every(v=>v)){
-            for(let i=r*8;i<r*8+8;i++) board[i]=0;
-            score+=40;
-        }
-    }
-    for(let c=0;c<8;c++){
-        let col=true;
-        for(let r=0;r<8;r++) if(!board[r*8+c]) col=false;
-        if(col){
-            for(let r=0;r<8;r++) board[r*8+c]=0;
-            score+=40;
-        }
-    }
-    scoreEl.innerText=score;
+function swap(a,b){
+    [board[a],board[b]]=[board[b],board[a]];
     draw();
 }
 
 function draw(){
     document.querySelectorAll(".cell").forEach((c,i)=>{
-        c.classList.toggle("active",board[i]);
-    })
-    if(!movesLeft()) gameover.style.display="flex";
-}
-
-function movesLeft(){
-    return shapes.some(s=>{
-        for(let i=0;i<64;i++) if(placeTest(s,i)) return true;
-        return false;
+        c.className="cell "+board[i];
     });
 }
 
-function placeTest(shape,start){
-    let row=Math.floor(start/8), col=start%8;
-    for(let r=0;r<shape.length;r++)
-        for(let c=0;c<shape[r].length;c++)
-            if(shape[r][c]){
-                let idx=(row+r)*8+(col+c);
-                if(col+c>=8||row+r>=8||board[idx]) return false;
-            }
-    return true;
+function checkMatches(){
+    for(let i=0;i<64;i++){
+        let row=i%8;
+        let color=board[i];
+        if(color==="") continue;
+
+        if(row<6 && color===board[i+1] && color===board[i+2]){
+            board[i]=board[i+1]=board[i+2]="";
+            score+=30;
+        }
+        if(i<48 && color===board[i+8] && color===board[i+16]){
+            board[i]=board[i+8]=board[i+16]="";
+            score+=30;
+        }
+    }
 }
 
-randomBlocks();
-draw();
+function dropCandies(){
+    for(let i=63;i>=0;i--){
+        if(board[i]===""){
+            board[i]=colors[Math.floor(Math.random()*colors.length)];
+        }
+        if(i>=8 && board[i]===""){
+            board[i]=board[i-8];
+            board[i-8]="";
+        }
+    }
+}
+
+grid.addEventListener("dragstart",e=>dragStart=e.target.dataset.id);
+grid.addEventListener("dragover",e=>e.preventDefault());
+grid.addEventListener("drop",e=>{
+    let dropId=e.target.dataset.id;
+    if(Math.abs(dragStart-dropId)===1||Math.abs(dragStart-dropId)===8){
+        swap(dragStart,dropId);
+    }
+});
+
+function gameLoop(){
+    checkMatches();
+    dropCandies();
+    draw();
+    scoreEl.innerText=score;
+}
+
+createBoard();
+setInterval(gameLoop,120);
+
 </script>
 
 </body>
