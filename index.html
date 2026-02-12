@@ -3,155 +3,234 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Candy Crush Pro</title>
+<title>Turbo Racer Pro</title>
 
 <style>
-*{box-sizing:border-box;font-family:'Segoe UI',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box;font-family:Segoe UI}
 
 body{
-    margin:0;
-    background:radial-gradient(circle,#ff7ad9,#8b5cf6);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
+    background:radial-gradient(circle at top,#020617,#000);
+    overflow:hidden;
 }
 
-.game{
-    background:rgba(0,0,0,.5);
-    padding:20px;
-    border-radius:20px;
-    box-shadow:0 0 30px #fff;
-    text-align:center;
+#hud{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+}
+
+.panel{
+    position:absolute;
+    background:rgba(0,0,0,.6);
+    padding:8px 15px;
+    border-radius:12px;
+    box-shadow:0 0 15px cyan;
+    color:white;
+    font-size:16px;
+}
+
+#score{top:10px;left:10px;}
+#speed{top:10px;right:10px;}
+#level{top:45px;left:10px;}
+#nitro{top:45px;right:10px;}
+
+#start{
+    position:fixed;
+    inset:0;
+    background:radial-gradient(circle,#020617,#000);
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
     color:white;
 }
 
-h1{
-    margin-bottom:10px;
-    text-shadow:0 0 15px #fff;
+#start h1{
+    font-size:48px;
+    text-shadow:0 0 25px cyan;
 }
 
-.score{
-    font-size:18px;
-    margin-bottom:10px;
-}
-
-.grid{
-    display:grid;
-    grid-template-columns:repeat(8,50px);
-    gap:5px;
-}
-
-.cell{
-    width:50px;
-    height:50px;
+#start button{
+    margin-top:20px;
+    padding:15px 45px;
+    font-size:22px;
+    border:none;
     border-radius:12px;
     cursor:pointer;
-    box-shadow:0 0 10px #000;
-    transition:0.15s;
+    background:linear-gradient(45deg,cyan,dodgerblue);
+    box-shadow:0 0 25px cyan;
 }
 
-.cell:hover{transform:scale(1.05);}
-
-.red{background:radial-gradient(circle,#ff5f5f,#b91c1c);}
-.blue{background:radial-gradient(circle,#60a5fa,#1d4ed8);}
-.green{background:radial-gradient(circle,#4ade80,#15803d);}
-.yellow{background:radial-gradient(circle,#fde047,#ca8a04);}
-.purple{background:radial-gradient(circle,#c084fc,#7c3aed);}
-.orange{background:radial-gradient(circle,#fb923c,#c2410c);}
-
+canvas{display:block;}
 </style>
 </head>
 
 <body>
 
-<div class="game">
-    <h1>🍬 Candy Crush</h1>
-    <div class="score">Score: <span id="score">0</span></div>
-    <div class="grid" id="grid"></div>
+<div id="start">
+    <h1>🚗 TURBO RACER PRO</h1>
+    <p>Use ⬅ ➡ Arrow Keys | Tap Left / Right on Mobile</p>
+    <button onclick="startGame()">START RACE</button>
 </div>
 
+<div id="hud">
+    <div id="score" class="panel">Score: 0</div>
+    <div id="speed" class="panel">Speed: 0 km/h</div>
+    <div id="level" class="panel">Level: 1</div>
+    <div id="nitro" class="panel">Nitro: READY</div>
+</div>
+
+<canvas id="game"></canvas>
+
 <script>
-const grid=document.getElementById("grid");
-const scoreEl=document.getElementById("score");
-const width=8;
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+canvas.width=innerWidth;
+canvas.height=innerHeight;
+
+let running=false;
 let score=0;
+let speed=6;
+let level=1;
+let nitro=false;
 
-const colors=["red","blue","green","yellow","purple","orange"];
-let board=[];
-let dragStart=null;
+const roadWidth=300;
+let carX=canvas.width/2;
+const carY=canvas.height-120;
 
-function createBoard(){
-    for(let i=0;i<64;i++){
-        let cell=document.createElement("div");
-        let color=colors[Math.floor(Math.random()*colors.length)];
-        cell.className="cell "+color;
-        cell.draggable=true;
-        cell.dataset.id=i;
-        board.push(color);
-        grid.appendChild(cell);
+let obstacles=[];
+let lines=[];
+
+class RoadLine{
+    constructor(y){
+        this.y=y;
+    }
+    update(){
+        this.y+=speed*2;
+        if(this.y>canvas.height) this.y=-50;
+        ctx.fillStyle="white";
+        ctx.fillRect(canvas.width/2-5,this.y,10,40);
     }
 }
 
-function swap(a,b){
-    [board[a],board[b]]=[board[b],board[a]];
-    draw();
+class Obstacle{
+    constructor(){
+        this.w=50;
+        this.h=80;
+        this.x=canvas.width/2 + (Math.random()*roadWidth-roadWidth/2);
+        this.y=-100;
+        this.speed= speed+Math.random()*2;
+    }
+    draw(){
+        ctx.fillStyle="red";
+        ctx.beginPath();
+        ctx.roundRect(this.x,this.y,this.w,this.h,10);
+        ctx.fill();
+    }
+    update(){
+        this.y+=this.speed;
+        this.draw();
+    }
 }
 
-function draw(){
-    document.querySelectorAll(".cell").forEach((c,i)=>{
-        c.className="cell "+board[i];
+function drawRoad(){
+    let grd=ctx.createLinearGradient(0,0,0,canvas.height);
+    grd.addColorStop(0,"#111");
+    grd.addColorStop(1,"#000");
+    ctx.fillStyle=grd;
+    ctx.fillRect(canvas.width/2-roadWidth/2,0,roadWidth,canvas.height);
+}
+
+function drawCar(){
+    ctx.save();
+    ctx.translate(carX,carY);
+    ctx.fillStyle="cyan";
+    ctx.beginPath();
+    ctx.roundRect(-20,-40,40,80,10);
+    ctx.fill();
+
+    ctx.fillStyle="#0ff";
+    ctx.fillRect(-15,-30,30,20);
+
+    ctx.restore();
+}
+
+function spawnObstacle(){
+    if(running) obstacles.push(new Obstacle());
+}
+setInterval(spawnObstacle,900);
+
+function animate(){
+    if(!running) return;
+    requestAnimationFrame(animate);
+
+    ctx.fillStyle="#000";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    drawRoad();
+
+    lines.forEach(l=>l.update());
+
+    obstacles.forEach((o,i)=>{
+        o.update();
+        if(o.y>canvas.height){
+            obstacles.splice(i,1);
+            score+=10;
+        }
+
+        if(o.y+o.h>carY-30 && o.y<carY+30 &&
+           o.x<carX+20 && o.x+o.w>carX-20){
+            gameOver();
+        }
     });
+
+    drawCar();
+
+    speed=6+level*1.5+(nitro?6:0);
+
+    if(score>level*150) level++;
+
+    document.getElementById("score").innerText="Score: "+score;
+    document.getElementById("speed").innerText="Speed: "+Math.floor(speed*18)+" km/h";
+    document.getElementById("level").innerText="Level: "+level;
 }
 
-function checkMatches(){
-    for(let i=0;i<64;i++){
-        let row=i%8;
-        let color=board[i];
-        if(color==="") continue;
-
-        if(row<6 && color===board[i+1] && color===board[i+2]){
-            board[i]=board[i+1]=board[i+2]="";
-            score+=30;
-        }
-        if(i<48 && color===board[i+8] && color===board[i+16]){
-            board[i]=board[i+8]=board[i+16]="";
-            score+=30;
-        }
-    }
+function startGame(){
+    document.getElementById("start").style.display="none";
+    running=true;
+    for(let i=0;i<15;i++) lines.push(new RoadLine(i*80));
+    animate();
 }
 
-function dropCandies(){
-    for(let i=63;i>=0;i--){
-        if(board[i]===""){
-            board[i]=colors[Math.floor(Math.random()*colors.length)];
-        }
-        if(i>=8 && board[i]===""){
-            board[i]=board[i-8];
-            board[i-8]="";
-        }
-    }
+function gameOver(){
+    running=false;
+    alert("💥 CRASH!\nScore: "+score);
+    location.reload();
 }
 
-grid.addEventListener("dragstart",e=>dragStart=e.target.dataset.id);
-grid.addEventListener("dragover",e=>e.preventDefault());
-grid.addEventListener("drop",e=>{
-    let dropId=e.target.dataset.id;
-    if(Math.abs(dragStart-dropId)===1||Math.abs(dragStart-dropId)===8){
-        swap(dragStart,dropId);
-    }
+addEventListener("keydown",e=>{
+    if(e.key==="ArrowLeft") carX-=30;
+    if(e.key==="ArrowRight") carX+=30;
+    if(e.key===" ") activateNitro();
 });
 
-function gameLoop(){
-    checkMatches();
-    dropCandies();
-    draw();
-    scoreEl.innerText=score;
+// MOBILE TOUCH
+addEventListener("touchstart",e=>{
+    let x=e.touches[0].clientX;
+    if(x<canvas.width/2) carX-=40;
+    else carX+=40;
+});
+
+function activateNitro(){
+    if(nitro) return;
+    nitro=true;
+    document.getElementById("nitro").innerText="Nitro: BOOST";
+    setTimeout(()=>{
+        nitro=false;
+        document.getElementById("nitro").innerText="Nitro: READY";
+    },3000);
 }
-
-createBoard();
-setInterval(gameLoop,120);
-
 </script>
 
 </body>
